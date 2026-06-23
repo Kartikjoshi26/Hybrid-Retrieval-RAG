@@ -170,11 +170,11 @@ def filter_safe_docs(docs: List[Document]) -> List[Document]:
             for element in pg_result:
                 # LABEL_1 is MALICIOUS (jailbreak/injection)
                 if element.label == "LABEL_1" and element.score > 0.5:
-                    print(f"[Safety Warning] Indirect prompt injection detected in retrieved text (score: {element.score:.4f})")
+                    # print(f"[Safety Warning] Indirect prompt injection detected in retrieved text (score: {element.score:.4f})")
                     return doc, False
             return doc, True
         except Exception as e:
-            print(f"Error checking document safety: {e}")
+            # print(f"Error checking document safety: {e}")
             # Fail-safe: if the API fails, preserve the document
             return doc, True
     # Check all documents in parallel to keep latency minimal
