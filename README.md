@@ -33,12 +33,19 @@ Features a bidirectional PII (Personally Identifiable Information) masking syste
 *   Anonymizes the user query and retrieved documents *before* they are sent to the external Groq LLM API.
 *   Streams the LLM response safely, and automatically deanonymizes the placeholders back to real values in the Streamlit UI in real-time once the generation is complete.
 
-### 📄 5. Metadata Propagation & Source Citations
+### 🛡️ 5. Multi-Layered Security Guardrails (Prompt Safety)
+Protects the LLM against malicious attacks and unsafe outputs using a defense-in-depth safety pipeline via Hugging Face Serverless Inference:
+*   **Prompt Injection & Jailbreak Prevention**: Uses **Llama-Prompt-Guard-2-86M** (or ProtectAI's `deberta-v3-base-prompt-injection-v2`) to intercept user queries and filter out adversarial attempts designed to hijack system instructions.
+*   **Content Safety Moderation**: Uses **Llama-Guard-3-8B** to perform real-time checks on user prompts, filtering out harmful domains (e.g., violent crimes, weapons, self-harm, hate speech, etc.).
+*   **Indirect Prompt Injection Filtering**: Extends prompt guard classification to retrieved document chunks (`filter_safe_docs`), ensuring malicious payloads embedded in files are removed *before* reaching the LLM context.
+*   **Fail-Safe Architecture**: Designed with automatic fallbacks and API timeouts to guarantee system availability even during external API outages.
+
+### 📄 6. Metadata Propagation & Source Citations
 *   Page-level numbers are captured during ingestion (supporting both digital and scanned OCR page parsing).
 *   Metadata is preserved across parent-child chunks.
 *   The system prompt instructs the model to explicitly cite the source document name and page number for every fact in its answer (e.g. `[Source: document_name.pdf, Page: 4]`).
 
-### 📊 6. LangSmith Observability
+### 📊 7. LangSmith Observability
 Fully decorated with `@traceable` spans to log and organize traces in LangSmith. The ingestion pipeline (`run_ingestion_pipeline`) and query pipeline (`run_rag_pipeline`) are structured hierarchically:
 *   Ingestion steps (`build loader`, `get clean chunks`, etc.) are grouped under a single ingestion trace parent.
 *   Vector store retrievals and LLM invocations are grouped cleanly under the query trace parent.
@@ -81,6 +88,11 @@ Create a `.env` file in the root directory:
 GROQ_API_KEY=your_groq_api_key
 MODEL_NAME=llama-3.3-70b-versatile
 TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
+
+# Hugging Face Access Token & Safety Models
+HF_TOKEN=your_huggingface_access_token_here
+CONTENT_MODERATE_MODEL_ID=meta-llama/Llama-Guard-3-8B
+PROMPT_GUARD_MODEL_ID=meta-llama/Llama-Prompt-Guard-2-86M
 
 # LangSmith tracing keys
 LANGCHAIN_TRACING_V2=true
