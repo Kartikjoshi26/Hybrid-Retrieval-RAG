@@ -33,7 +33,7 @@ from chunk_utils import get_clean_chunks
 from retriever_utils import get_retriever, hybrid_retriever_with_compression
 from vector_store_utils import get_vector_store
 from doc_loader_utils import get_documents
-from security_utils import anonymize_text, deanonymize_text, sanitize_docs
+from security_utils import anonymize_text, deanonymize_text, process_and_sanitize_docs, check_prompt_safety_api
 
 
 load_dotenv()
@@ -179,15 +179,26 @@ user_input = st.chat_input("Ask your question here")
 @traceable(run_type="chain", name="RAG Query Pipeline")
 def run_rag_pipeline(user_input):
 
+    if(not check_prompt_safety_api(user_input)):
+        
+        warning_msg = "I can't help you with that request"
+
+        with st.chat_message('assistant'):
+            st.write(warning_msg)
+
+        st.session_state['chatHistory'].append(HumanMessage(content=user_input))
+        st.session_state['chatHistory'].append(AIMessage(content=warning_msg))
+        
+        return warning_msg
 
     relevant_docs = st.session_state.retriever.get_relevant_documents(user_input)
 
-    pii_cleaned_docs = sanitize_docs(relevant_docs)
+    pii_cleaned_docs = process_and_sanitize_docs(relevant_docs)
 
     # clean_relevant_docs = [c.page_content for c in pii_cleaned_docs]
     # print("Relevant docs: ")
     # print(clean_relevant_docs[:5])
-    
+
     clean_user_input = anonymize_text(user_input)
     system_prompt = set_System_prompt(user_input=clean_user_input,clean_relevant_docs=pii_cleaned_docs)
 
