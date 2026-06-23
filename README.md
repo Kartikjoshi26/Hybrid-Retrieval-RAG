@@ -38,7 +38,7 @@ Protects the LLM against malicious attacks and unsafe outputs using a defense-in
 *   **Prompt Injection & Jailbreak Prevention**: Uses **Llama-Prompt-Guard-2-86M** (or ProtectAI's `deberta-v3-base-prompt-injection-v2`) to intercept user queries and filter out adversarial attempts designed to hijack system instructions.
 *   **Content Safety Moderation**: Uses **Llama-Guard-3-8B** to perform real-time checks on user prompts, filtering out harmful domains (e.g., violent crimes, weapons, self-harm, hate speech, etc.).
 *   **Indirect Prompt Injection Filtering**: Extends prompt guard classification to retrieved document chunks (`filter_safe_docs`), ensuring malicious payloads embedded in files are removed *before* reaching the LLM context.
-*   **Fail-Safe Architecture**: Designed with automatic fallbacks and API timeouts to guarantee system availability even during external API outages.
+
 
 ### 📄 6. Metadata Propagation & Source Citations
 *   Page-level numbers are captured during ingestion (supporting both digital and scanned OCR page parsing).
