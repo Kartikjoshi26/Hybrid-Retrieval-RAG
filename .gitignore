@@ -3,3 +3,4 @@ rag_project/
 .vscode/
 __pycache__/
 *.pdf
+*.csv
