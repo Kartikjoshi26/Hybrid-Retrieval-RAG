@@ -19,7 +19,7 @@ The codebase has been refactored into focused, modular components:
 Instead of searching over arbitrary text blocks, the retrieval pipeline leverages a **Parent-Child Document Retriever**:
 *   **Child Chunks (~300 characters)**: Used for precise, dense semantic vector searches.
 *   **Parent Documents (~2000 characters)**: Once the semantic search finds the best child chunk, it resolves back to the full parent paragraph context stored in an `InMemoryStore`.
-*   **Ensemble Retrieval**: Combines keyword-based search (**BM25Retriever**) with semantic vector search (**MMR parent retriever**) using weighted scoring (`0.4` BM25 / `0.6` Parent MMR).
+*   **Ensemble Retrieval**: Combines keyword-based search (**BM25Retriever**), standard vector search (**MMR retriever**), and parent-child vector search (**Parent MMR retriever**) using weighted scoring (`0.25` BM25 / `0.25` standard MMR / `0.5` Parent MMR).
 
 ### 🚀 3. Local Cross-Encoder Reranking
 Reranks the ensembled candidates locally using `cross-encoder/ms-marco-MiniLM-L-6-v2` via `ContextualCompressionRetriever`. This ensures:
