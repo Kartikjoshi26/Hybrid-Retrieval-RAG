@@ -112,3 +112,29 @@ streamlit run RAG.py
 1.  Upload a document (PDF) in the sidebar.
 2.  Click **Submit** to trigger the modular ingestion pipeline. You will see interactive progress spinners as it extracts text, tables, creates the parent-child mapping, and generates the vector DB.
 3.  Once indexed, type your query. The app will sanitize your PII data, retrieve and rerank context, stream the masked response, and output the clean deanonymized result with exact page citations!
+
+---
+
+## 📊 Evaluation & Metrics
+
+The RAG pipeline is evaluated using an automated, high-throughput evaluation script ([RAG_eval.py](file:///d:/Projects/RAG/RAG_eval.py)) powered by the **Ragas** framework.
+
+### How the Evaluation Works
+1. **Evaluation Dataset:** The pipeline is tested against a 50-query evaluation dataset with corresponding ground-truth answers. The queries cover multiple source documents (New York City, Snow Leopards, Galapagos Islands, and Penguins).
+2. **Robust Document Ingestion:** The evaluation script uses `UnstructuredURLLoader` with custom browser headers to reliably fetch and parse HTML pages without being blocked by robot detection policies.
+3. **API Key Rotation:** To bypass Groq's strict rate limits (8K Tokens Per Minute / 30 Requests Per Minute), the script uses a custom `PatchedChatGroq` class that cycles through up to 7 API keys (`GROQ_API_KEY` to `GROQ_API_KEY_7`) in a round-robin fashion.
+4. **Isolated Evaluator:** The chatbot under test is evaluated using `llama-3.3-70b-versatile` (generation), while `openai/gpt-oss-120b` acts as the LLM judge for scoring.
+5. **No Safeguard Overhead:** Safety guards are bypassed during evaluation to ensure that metrics measure the raw, unperturbed retrieval and generation performance.
+
+### Final Evaluation Scores
+The pipeline achieved the following scores across the 50-query evaluation dataset:
+
+| Metric | Score | Description |
+| :--- | :---: | :--- |
+| **Faithfulness** | `0.937` | Measures how factually accurate the generated answer is relative to the retrieved context. |
+| **Answer Relevancy** | `0.865` | Measures how relevant the generated answer is to the user's initial query. |
+| **Context Precision** | `0.821` | Measures whether the retrieved context contains relevant information ranked at the top. |
+| **Context Recall** | `0.868` | Measures if the retriever successfully retrieved all the necessary information to answer the question. |
+| **Answer Similarity** | `0.906` | Measures the semantic similarity between the generated answer and the ground truth. |
+| **Answer Correctness** | `0.808` | Measures both semantic and factual similarity between the generated answer and the ground truth. |
+

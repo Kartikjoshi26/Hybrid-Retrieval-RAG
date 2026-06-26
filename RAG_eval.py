@@ -1,9 +1,12 @@
+##~~~~~~~~~~~~~~~~~~ RAG pipeline evaluation without security measures ~~~~~~~~~~~~~~~##
+
 import os
 import sys
 import time
 from dotenv import load_dotenv
 from datasets import Dataset 
-# RAGAS and LangChain imports
+ 
+
 from ragas import evaluate
 from ragas.run_config import RunConfig
 from ragas.metrics import (
@@ -15,28 +18,36 @@ from ragas.metrics import (
     answer_similarity, 
     answer_correctness
 )
-from langchain_community.document_loaders import SeleniumURLLoader
+
+
+from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
-# Project imports
+
+
 from vector_store_utils import get_vector_store
 from retriever_utils import hybrid_retriever_with_compression
 from security_utils import anonymize_text, deanonymize_text, process_and_sanitize_docs, check_prompt_safety_api
-from prompt_utils import set_System_prompt
-# 1. Load environment variables
+from prompt_utils import set_System_prompt, set_rag_eval_System_prompt
+
+
 load_dotenv()
 api_key = os.getenv("GROQ_API_KEY")
-# Fallback to llama-3.3-70b-versatile if RAG_EVAL_MODEL_ID is not set in .env
+
 RAG_EVAL_MODEL_ID = os.getenv("RAG_EVAL_MODEL_ID", "openai/gpt-oss-120b")
 RAG_CHATBOT_MODEL_ID = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 print("Initializing RAG components...")
-# 2. Initialize LLM and Embedding Model
+
 import threading
 
 class PatchedChatGroq(ChatGroq):
     def __init__(self, *args, **kwargs):
         # Load keys from environment
         api_keys = [
+            os.getenv("GROQ_API_KEY_4"),
+            os.getenv("GROQ_API_KEY_5"),
+            os.getenv("GROQ_API_KEY_6"),
+            os.getenv("GROQ_API_KEY_7"),
             os.getenv("GROQ_API_KEY"),
             os.getenv("GROQ_API_KEY_2"),
             os.getenv("GROQ_API_KEY_3")
@@ -131,7 +142,7 @@ class PatchedChatGroq(ChatGroq):
                     raise e
         raise last_exception
 
-# The judge LLM for RAGAS evaluation
+
 llm = PatchedChatGroq(
     temperature=0,
     groq_api_key=api_key,
@@ -147,7 +158,7 @@ rag_llm = PatchedChatGroq(
 embedding_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
-# 3. Load Evaluation Data (URLs)
+
 urls = [
     "https://en.wikipedia.org/wiki/New_York_City",
     "https://en.wikipedia.org/wiki/Snow_leopard",
@@ -156,7 +167,10 @@ urls = [
 ]
 
 
-loader = SeleniumURLLoader(urls=urls)
+loader = UnstructuredURLLoader(
+    urls=urls,
+    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+)
 documents = loader.load()
 
 
@@ -296,7 +310,7 @@ for query in queries:
     relevant_docs = retriever.get_relevant_documents(query)
     
     # Build System Prompt using raw query and raw documents
-    system_prompt = set_System_prompt(user_input=query, clean_relevant_docs=relevant_docs)
+    system_prompt = set_rag_eval_System_prompt(user_input=query, clean_relevant_docs=relevant_docs)
     
     # Generate response
     try:
@@ -314,45 +328,19 @@ for query in queries:
     
     # Sleep to stay under Groq's 30 RPM (Requests Per Minute) rate limits
     time.sleep(2.0)
-# 7. Build RAGAS Dataset
+
 print("Preparing evaluation dataset...")
-
-def strip_sources(text):
-    import re
-    # Remove inline brackets/parens/brackets with "Source:" inside
-    # e.g., 【Source: ...】, [Source: ...], (Source: ...)
-    text = re.sub(r'【\s*Source:[^】]*】', '', text)
-    text = re.sub(r'\[\s*Source:[^\]]*\]', '', text)
-    text = re.sub(r'\(\s*Source:[^\)]*\)', '', text)
-    
-    # Remove lines or sections starting with Source/Sources/Sources
-    lines = text.split("\n")
-    cleaned_lines = []
-    for line in lines:
-        stripped = line.strip().lower()
-        if (stripped.startswith("**source") or 
-            stripped.startswith("source:") or 
-            stripped.startswith("[source:") or 
-            stripped.startswith("sources:") or 
-            stripped.startswith("**sources**")):
-            break
-        cleaned_lines.append(line)
-    
-    return "\n".join(cleaned_lines).strip()
-
-# Clean generated answers for evaluation
-cleaned_results = [strip_sources(r) for r in results]
 
 d = {
     "question": queries,
-    "answer": cleaned_results,
+    "answer": results,
     "contexts": contexts,
     "ground_truth": ground_truths
 }
 
 dataset = Dataset.from_dict(d)
 # 8. Evaluate metrics using Groq and the local embedding model
-print("Evaluating metrics with RAGAS (throttled to respect rate limits)...")
+print("Evaluating metrics with RAGAS")
 run_config = RunConfig(
     max_workers=1,      # Process 1 query at a time to stay under 30 RPM limit
     timeout=240,
@@ -379,8 +367,6 @@ score = evaluate(
 
 print("Saving evaluation scores...")
 score_df = score.to_pandas()
-# Keep both the original response with sources and the cleaned response used for evaluation
-score_df.insert(3, 'original_response', results)
 score_df.to_csv("EvaluationScores.csv", encoding="utf-8", index=False)
 
 print("\nEvaluation Completed!")
